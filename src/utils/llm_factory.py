@@ -36,6 +36,15 @@ def get_llm(provider: str = None, temperature: float = 0.0):
 
     if provider == "openai":
         from langchain_openai import ChatOpenAI
+
+        class RobustChatOpenAI(ChatOpenAI):
+            def _get_request_payload(self, *args, **kwargs):
+                payload = super()._get_request_payload(*args, **kwargs)
+                # Xử lý các model không hỗ trợ custom temperature (chỉ hỗ trợ default = 1)
+                if self.model_name and ("gpt-5" in self.model_name or "o1" in self.model_name or "o3" in self.model_name):
+                    payload.pop("temperature", None)
+                return payload
+
         kwargs = {
             "model": config.OPENAI_MODEL,
             "api_key": config.OPENAI_API_KEY,
@@ -43,7 +52,7 @@ def get_llm(provider: str = None, temperature: float = 0.0):
         }
         if config.OPENAI_BASE_URL:
             kwargs["base_url"] = config.OPENAI_BASE_URL
-        return ChatOpenAI(**kwargs)
+        return RobustChatOpenAI(**kwargs)
 
     elif provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
@@ -71,8 +80,7 @@ def get_llm(provider: str = None, temperature: float = 0.0):
 
     elif provider == "openrouter":
         # OpenRouter dùng OpenAI-compatible API
-        from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
+        return RobustChatOpenAI(
             model=config.OPENROUTER_MODEL,
             api_key=config.OPENROUTER_API_KEY,
             base_url=config.OPENROUTER_BASE_URL,
